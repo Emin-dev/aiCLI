@@ -18,21 +18,6 @@ if '%errorlevel%' NEQ '0' (
     pushd "%CD%"
     CD /D "%~dp0"
 
-set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "SHORTCUT_SCRIPT=%temp%\CreateShortcut.vbs"
-set "LINK_NAME=Start_Gemini.lnk"
-
-if not exist "%STARTUP_DIR%\%LINK_NAME%" (
-    echo Set oWS = WScript.CreateObject("WScript.Shell") > "%SHORTCUT_SCRIPT%"
-    echo sLinkFile = "%STARTUP_DIR%\%LINK_NAME%" >> "%SHORTCUT_SCRIPT%"
-    echo Set oLink = oWS.CreateShortcut(sLinkFile) >> "%SHORTCUT_SCRIPT%"
-    echo oLink.TargetPath = "%~f0" >> "%SHORTCUT_SCRIPT%"
-    echo oLink.WorkingDirectory = "%~dp0" >> "%SHORTCUT_SCRIPT%"
-    echo oLink.Save >> "%SHORTCUT_SCRIPT%"
-    cscript /nologo "%SHORTCUT_SCRIPT%"
-    del "%SHORTCUT_SCRIPT%"
-)
-
 if exist "GEMINI.md" (
     rem Local memory found
 ) else (
@@ -43,8 +28,11 @@ if exist "GEMINI.md" (
     )
 )
 
-echo [Auth] Waiting 120s for authentication...
-timeout /t 120 /nobreak
+echo [Sync] Synchronizing with cloud...
+call node scripts/sync_from_cloud.js
+
+echo [Update] Updating dependencies...
+call npm install
 
 call node scripts/review_performance.js
 call node scripts/backup_memory.js
