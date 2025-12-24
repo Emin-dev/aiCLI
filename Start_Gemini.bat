@@ -46,6 +46,7 @@ if exist "GEMINI.md" (
 echo [Auth] Waiting 120s for authentication...
 timeout /t 120 /nobreak
 
+call node scripts/review_performance.js
 call node scripts/backup_memory.js
 
 echo ========================================================
