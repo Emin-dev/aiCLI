@@ -4,62 +4,78 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import os from 'node:os';
-import { execSync } from 'node:child_process';
+import si from 'systeminformation';
 
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (
-    parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) +
-    ' ' +
-    ['B', 'KB', 'MB', 'GB', 'TB'][i]
-  );
-}
-
-function getSystemHealth() {
-  console.log('=== GEMINI SYSTEM DIAGNOSTICS ===');
-  console.log(`
-[System] OS: ${os.type()} | Uptime: ${(os.uptime() / 3600).toFixed(2)} hours`);
-
-  const totalMem = os.totalmem();
-  const usedMem = totalMem - os.freemem();
-  console.log(
-    `[Memory] Used: ${formatBytes(usedMem)} / ${formatBytes(totalMem)} (${((usedMem / totalMem) * 100).toFixed(1)}%)`,
-  );
-
-  console.log(
-    `[CPU] Model: ${os.cpus()[0].model} | Cores: ${os.cpus().length}`,
-  );
-
-  console.log(`
-[Storage]`);
-  try {
-    const psCommand =
-      "Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{Name='Used';Expression={$_.Used}}, @{Name='Total';Expression={$_.Used + $_.Free}} | ConvertTo-Json";
-    const output = execSync(`powershell -NoProfile -Command "${psCommand}"`, {
-      encoding: 'utf8',
-    });
-    const drives = JSON.parse(output);
-    const driveList = Array.isArray(drives) ? drives : [drives];
-    driveList.forEach((d) => {
-      if (d.Total > 0) {
-        console.log(
-          `${d.Name}: ${formatBytes(d.Used)} / ${formatBytes(d.Total)} (${((d.Used / d.Total) * 100).toFixed(1)}%)`,
-        );
-      }
-    });
-  } catch (_e) {
-    console.log('Disk info unavailable.');
-  }
+async function runDiagnostics() {
+  console.log('=== GEMINI ADVANCED DIAGNOSTICS ===');
+  console.log(`Timestamp: ${new Date().toISOString()}\n`);
 
   try {
-    execSync('ping -n 1 8.8.8.8', { stdio: 'ignore' });
-    console.log('\n[Network] Status: Online');
-  } catch {
-    console.log('\n[Network] Status: Offline');
+    // 1. System & OS
+    const os = await si.osInfo();
+    const system = await si.system();
+    console.log(`[System]`);
+    console.log(`  Host: ${os.hostname}`);
+    console.log(`  OS:   ${os.distro} ${os.release} (${os.arch})`);
+    console.log(`  Model: ${system.manufacturer} ${system.model}`);
+    console.log(`  Uptime: ${(si.time().uptime / 3600).toFixed(2)} hours`);
+
+    // 2. CPU
+    const cpu = await si.cpu();
+    const load = await si.currentLoad();
+    console.log(`\n[CPU]`);
+    console.log(`  Model: ${cpu.brand}`);
+    console.log(
+      `  Cores: ${cpu.physicalCores} Physical / ${cpu.cores} Logical`,
+    );
+    console.log(`  Speed: ${cpu.speed} GHz`);
+    console.log(`  Load:  ${load.currentLoad.toFixed(1)}%`);
+
+    // 3. Memory
+    const mem = await si.mem();
+    console.log(`\n[Memory]`);
+    console.log(`  Total: ${(mem.total / 1024 / 1024 / 1024).toFixed(2)} GB`);
+    console.log(`  Used:  ${(mem.active / 1024 / 1024 / 1024).toFixed(2)} GB`);
+    console.log(
+      `  Free:  ${(mem.available / 1024 / 1024 / 1024).toFixed(2)} GB`,
+    );
+
+    // 4. Disk / Storage
+    const fsSize = await si.fsSize();
+    console.log(`\n[Storage]`);
+    fsSize.forEach((disk) => {
+      const usedPercent = disk.use.toFixed(1);
+      const totalGB = (disk.size / 1024 / 1024 / 1024).toFixed(2);
+      const usedGB = (disk.used / 1024 / 1024 / 1024).toFixed(2);
+      console.log(
+        `  ${disk.fs} (${disk.type}) -> ${usedGB} GB / ${totalGB} GB (${usedPercent}%)`,
+      );
+    });
+
+    // 5. Battery (if applicable)
+    const battery = await si.battery();
+    if (battery.hasBattery) {
+      console.log(`\n[Battery]`);
+      console.log(`  Percent: ${battery.percent}%`);
+      console.log(`  Charging: ${battery.isCharging}`);
+    }
+
+    // 6. Network
+    const interfaces = await si.networkInterfaces();
+    const defaultIf = await si.networkInterfaceDefault();
+    const activeIf = interfaces.find((i) => i.iface === defaultIf);
+    console.log(`\n[Network]`);
+    if (activeIf) {
+      console.log(`  Interface: ${activeIf.iface}`);
+      console.log(`  IP (v4):   ${activeIf.ip4}`);
+      console.log(`  MAC:       ${activeIf.mac}`);
+    } else {
+      console.log(`  Status:    Unknown/Offline`);
+    }
+  } catch (e) {
+    console.error('Error retrieving system info:', e);
   }
-  console.log('\n=================================');
+  console.log('\n===================================\n');
 }
 
-getSystemHealth();
+runDiagnostics();
