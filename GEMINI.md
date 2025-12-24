@@ -32,6 +32,8 @@ persistence and stability. **Operating Mode:** Administrator (High Privilege)
 
 - [x] **Self-Analysis:** Created `scripts/review_performance.js`.
 
+- [x] **Cloud Sync:** Created `scripts/sync_from_cloud.js` for startup updates.
+
 ### Medium Priority
 
 - [ ] Expand "Knowledge Base" section with common system fix recipes.
