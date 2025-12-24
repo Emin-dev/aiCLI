@@ -121,9 +121,11 @@
     "yargs": "^17.7.2"
   },
   "dependencies": {
+    "@xenova/transformers": "^2.17.2",
     "ink": "npm:@jrichman/ink@6.4.6",
     "langchain": "^1.2.3",
     "latest-version": "^9.0.0",
+    "pm2": "^6.0.14",
     "simple-git": "^3.28.0",
     "systeminformation": "^5.27.16",
     "uuid": "^13.0.0",

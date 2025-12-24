@@ -9,14 +9,16 @@ import path from 'node:path';
 import os from 'node:os';
 import { LocalIndex } from 'vectra';
 import { v4 as uuidv4 } from 'uuid';
+import { pipeline } from '@xenova/transformers';
 
 const PROJECT_ROOT = process.cwd();
 const MEMORY_FILE = path.join(PROJECT_ROOT, 'GEMINI.md');
 const VECTOR_DB_PATH = path.join(os.homedir(), '.gemini', 'vector_db');
 
-// Placeholder embedding (In production, replace with OpenAI/Bert/etc)
-function getEmbedding(_text) {
-  return Array.from({ length: 10 }, () => Math.random());
+// Real embedding using a local model
+async function getEmbedding(text, extractor) {
+  const result = await extractor(text, { pooling: 'mean', normalize: true });
+  return Array.from(result.data);
 }
 
 async function ingest() {
@@ -24,6 +26,12 @@ async function ingest() {
 
   const index = new LocalIndex(VECTOR_DB_PATH);
   if (!(await index.isIndexCreated())) await index.createIndex();
+
+  console.log('[Memory] Loading embedding model (Xenova/all-MiniLM-L6-v2)...');
+  const extractor = await pipeline(
+    'feature-extraction',
+    'Xenova/all-MiniLM-L6-v2',
+  );
 
   const content = fs.readFileSync(MEMORY_FILE, 'utf-8');
 
@@ -41,10 +49,13 @@ async function ingest() {
 
     if (!body) continue;
 
+    // Generate real embedding
+    const vector = await getEmbedding(title + '\n' + body, extractor);
+
     // Create a memory item
     const item = {
       id: uuidv4(),
-      vector: getEmbedding(title + body),
+      vector: vector,
       metadata: {
         source: 'GEMINI.md',
         section: title,
@@ -59,4 +70,4 @@ async function ingest() {
   console.log('[Memory] Ingestion complete.');
 }
 
-ingest().catch(() => {});
+ingest().catch((err) => console.error(err));
